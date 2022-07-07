@@ -50,10 +50,7 @@ func (c *ConnectPool) validConn(conn *Conn) bool {
 // 从已连接的conn列表弹出第一个有效的conn, 不存在时返回nil
 func (c *ConnectPool) popFrontConn() *Conn {
 	for c.connList.Len() > 0 {
-		e := c.connList.Front()
-		c.connList.Remove(e)
-
-		conn := e.Value.(*Conn)
+		conn := c.connList.Remove(c.connList.Front()).(*Conn)
 		if c.validConn(conn) {
 			conn.putTimeSec = 0 // 重置放入时间
 			return conn

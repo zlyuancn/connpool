@@ -97,15 +97,14 @@ func (c *ConnectPool) Put(conn *Conn) {
 	// 放入活跃锁
 	c.putActiveLock()
 
-	// 校验conn, 如果失败循环从conn列表中获取一个有效的
+	// 校验conn, 如果失败从conn列表中获取一个有效的
 	for !c.validConn(conn) {
-		if c.connList.Len() == 0 {
+		conn = c.popFrontConn()
+		if conn == nil {
 			c.replenishLackConn()
 			return
 		}
-
-		e := c.connList.Front()
-		conn = c.connList.Remove(e).(*Conn)
+		conn.putTimeSec = 0 // 取出后需要重置放入时间
 	}
 
 	// 立即使用这个conn
@@ -132,12 +131,10 @@ func (c *ConnectPool) Close() {
 	defer c.mx.Unlock()
 
 	for c.connList.Len() > 0 {
-		e := c.connList.Front()
-		c.connList.Remove(e)
-
-		conn := e.Value.(*Conn)
+		conn := c.connList.Remove(c.connList.Front()).(*Conn)
 		c.conf.ConnClose(conn)
 	}
+	c.connList = list.New()
 }
 
 // 连接池是否已关闭
