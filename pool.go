@@ -24,7 +24,7 @@ type Creator func(ctx context.Context) (interface{}, error)
 // 关闭方式, 连接池会在空闲超时以及超过最大空闲数时调用 ConnClose, 连接池关闭时也会调用 ConnClose
 type ConnClose func(conn *Conn)
 
-// 检查连接是否有效
+// 检查连接是否有效, 如果有效返回true
 type ValidConnected func(conn *Conn) bool
 
 var (
@@ -89,7 +89,7 @@ func (c *ConnectPool) Put(conn *Conn) {
 
 	c.activeNum--
 
-	if !c.isClose() {
+	if c.isClose() {
 		c.conf.ConnClose(conn)
 		return
 	}
@@ -172,8 +172,10 @@ func (c *ConnectPool) getLoop(ctx context.Context) (*Conn, error) {
 
 	// 先从conn池中获取
 	conn := c.popFrontConn()
+	fmt.Println("popFrontConn ", conn)
 	if conn != nil {
 		c.activeNum++
+		c.mx.Unlock()
 		return conn, nil
 	}
 
@@ -199,15 +201,17 @@ func (c *ConnectPool) autoPutConn(conn *Conn) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
-	if !c.isClose() {
+	if c.isClose() {
 		c.conf.ConnClose(conn)
 		return
 	}
 
 	// 立即使用这个conn
 	if c.useConn(conn) {
+		fmt.Println("useConn true")
 		return
 	}
+	fmt.Println("useConn false")
 
 	// 放入conn列表, 自动放入的conn应该放在列表末尾
 	conn.putTimeSec = time.Now().Unix()

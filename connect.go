@@ -48,7 +48,7 @@ func (c *ConnectPool) checkIdleLoop() {
 
 // 申请一个连接
 func (c *ConnectPool) applyConnectLoop() error {
-	ctx, cancel := context.WithTimeout(context.Background(), c.conf.ConnectTimeout)
+	ctx, cancel := context.WithTimeout(c.baseCtx, c.conf.ConnectTimeout)
 	defer cancel()
 
 	var v interface{}

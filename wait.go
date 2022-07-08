@@ -25,13 +25,7 @@ func (c *ConnectPool) useConn(conn *Conn) bool {
 		// 先进先出
 		e := c.activeWaitList.Front()
 		req := c.activeWaitList.Remove(e).(*waitReq)
-
-		select {
-		case req.ch <- conn: // 这里可能由于 waitReq 超时而无法放入
-			return true
-		default: // 放入conn失败则释放锁, 因为这个 waitReq 占用了锁
-			c.putActiveLock()
-		}
+		req.ch <- conn // 必然能放入
 	}
 	return false
 }
@@ -67,7 +61,7 @@ func (c *ConnectPool) addWaitReq(hasActiveLock bool) (*waitReq, error) {
 	}
 
 	req := &waitReq{
-		ch:            make(chan *Conn),
+		ch:            make(chan *Conn, 1),
 		hasActiveLock: hasActiveLock,
 	}
 	reqElement := l.PushBack(req) // 放入末尾, 先进先出
@@ -76,26 +70,39 @@ func (c *ConnectPool) addWaitReq(hasActiveLock bool) (*waitReq, error) {
 }
 
 // waitReq等待获取到conn, 一旦成功取到conn则活跃计数+1
-func (c *ConnectPool) waitReqGetConnLoop(ctx context.Context, req *waitReq) (*Conn, error) {
+func (c *ConnectPool) waitReqGetConnLoop(ctx context.Context, req *waitReq) (conn *Conn, err error) {
 	// 等待conn
 	ctxWait, cancel := context.WithTimeout(ctx, c.conf.WaitTimeout)
 	defer cancel()
 
 	select {
 	case <-c.close: // 已关闭
-		return nil, ErrPoolClosed
+		err = ErrPoolClosed
 	case <-ctxWait.Done(): // 超时
-		c.mx.Lock()
-		if req.hasActiveLock {
-			c.activeWaitList.Remove(req.e)
-			c.putActiveLock() // 将活跃锁交出去
-		} else {
-			c.waitList.Remove(req.e)
-		}
-		c.mx.Unlock()
-		return nil, ErrWaitGetConnTimeout
-	case conn := <-req.ch:
+		err = ErrWaitGetConnTimeout
+	case conn = <-req.ch:
 		c.activeNum++
 		return conn, nil
 	}
+
+	// 这里可能已经被 useConn 取出并已经放入了 conn, 所以需要再尝试一下
+	c.mx.Lock()
+	select {
+	case conn = <-req.ch:
+	default:
+		if req.hasActiveLock {
+			c.activeWaitList.Remove(req.e)
+		} else {
+			c.waitList.Remove(req.e)
+		}
+	}
+	if req.hasActiveLock {
+		c.putActiveLock() // 将活跃锁交出去
+	}
+	c.mx.Unlock()
+
+	if conn != nil {
+		c.autoPutConn(conn)
+	}
+	return
 }
