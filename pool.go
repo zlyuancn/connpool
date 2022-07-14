@@ -172,7 +172,6 @@ func (c *ConnectPool) getLoop(ctx context.Context) (*Conn, error) {
 
 	// 先从conn池中获取
 	conn := c.popFrontConn()
-	fmt.Println("popFrontConn ", conn)
 	if conn != nil {
 		c.activeNum++
 		c.mx.Unlock()
@@ -208,10 +207,8 @@ func (c *ConnectPool) autoPutConn(conn *Conn) {
 
 	// 立即使用这个conn
 	if c.useConn(conn) {
-		fmt.Println("useConn true")
 		return
 	}
-	fmt.Println("useConn false")
 
 	// 放入conn列表, 自动放入的conn应该放在列表末尾
 	conn.putTimeSec = time.Now().Unix()

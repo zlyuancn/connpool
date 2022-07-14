@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -44,5 +45,22 @@ func TestGet(t *testing.T) {
 	conn, err := p.Get(context.Background())
 	require.Nil(t, err)
 	require.Equal(t, testConn{}, conn.GetConn())
+	p.Close()
+}
+
+func TestGetTimeout(t *testing.T) {
+	conf := makeTestConfig()
+	conf.MaxActive = 2
+	conf.WaitTimeout = time.Millisecond * 300
+	p, err := NewConnectPool(conf)
+	require.Nil(t, err)
+
+	_, err = p.Get(context.Background())
+	require.Nil(t, err)
+	_, err = p.Get(context.Background())
+	require.Nil(t, err)
+
+	_, err = p.Get(context.Background())
+	require.NotNil(t, ErrWaitGetConnTimeout)
 	p.Close()
 }
