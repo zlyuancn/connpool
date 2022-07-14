@@ -128,7 +128,7 @@ func (c *ConnectPool) checkNeedConnCount() int {
 
 // 释放无效的conn
 func (c *ConnectPool) releaseInvalidConn() {
-	if c.conf.IdleTimeout < 1 {
+	if c.conf.IdleTimeout < 1 && c.conf.MaxConnLifetime < 1 {
 		return
 	}
 

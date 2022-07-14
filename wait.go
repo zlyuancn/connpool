@@ -21,13 +21,15 @@ func (c *ConnectPool) getWaitConnCount() int {
   交付失败会释放一个活跃锁并重新从列表中取出 waitReq.
 */
 func (c *ConnectPool) useConn(conn *Conn) bool {
-	for c.activeWaitList.Len() > 0 {
-		// 先进先出
-		e := c.activeWaitList.Front()
-		req := c.activeWaitList.Remove(e).(*waitReq)
-		req.ch <- conn // 必然能放入
+	if c.activeWaitList.Len() == 0 {
+		return false
 	}
-	return false
+
+	// 先进先出
+	e := c.activeWaitList.Front()
+	req := c.activeWaitList.Remove(e).(*waitReq)
+	req.ch <- conn // 必然能放入
+	return true
 }
 
 /*放入一个活跃锁

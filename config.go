@@ -2,7 +2,6 @@ package connpool
 
 import (
 	"errors"
-	"fmt"
 	"time"
 )
 
@@ -12,11 +11,11 @@ const (
 	// 最小闲置
 	defMinIdle = 2
 	// 最大闲置
-	defMaxIdle = 5
+	defMaxIdle = defMinIdle * 2
 	// 最大活跃连接数
-	defMaxActive = 20
+	defMaxActive = 10
 	// 批次增量
-	defBatchIncrement = defMinIdle
+	defBatchIncrement = defMinIdle * 2
 	// 批次缩容
 	defBatchShrink = defBatchIncrement
 	// 空闲链接超时时间
@@ -80,13 +79,13 @@ func (conf *Config) Check() error {
 		conf.MaxIdle = defMaxIdle
 	}
 	if conf.MaxIdle < conf.MinIdle {
-		return fmt.Errorf("MaxIdle(%v) 不能小于 MinIdle(%v)", conf.MaxIdle, conf.MinIdle)
+		conf.MaxIdle = conf.MinIdle * 2
 	}
 	if conf.BatchIncrement < 1 {
 		conf.BatchIncrement = conf.MinIdle
 	}
 	if conf.BatchIncrement > conf.MaxIdle {
-		return fmt.Errorf("BatchIncrement(%v) 不能大于 MaxIdle(%v)", conf.BatchIncrement, conf.MaxIdle)
+		conf.BatchIncrement = conf.MaxIdle
 	}
 	if conf.BatchShrink < 1 {
 		conf.BatchShrink = conf.BatchIncrement
