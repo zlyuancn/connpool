@@ -3,12 +3,21 @@ package connpool
 import (
 	"container/list"
 	"context"
+	"sync"
 )
 
 type waitReq struct {
 	ch            chan *Conn
 	e             *list.Element
 	hasActiveLock bool // 是否已获得活跃锁
+}
+
+var waitReqPool = &sync.Pool{
+	New: func() interface{} {
+		return &waitReq{
+			ch: make(chan *Conn, 1),
+		}
+	},
 }
 
 // 等待conn的数量
@@ -62,10 +71,8 @@ func (c *ConnectPool) addWaitReq(hasActiveLock bool) (*waitReq, error) {
 		return nil, ErrMaxWaitConnLimit
 	}
 
-	req := &waitReq{
-		ch:            make(chan *Conn, 1),
-		hasActiveLock: hasActiveLock,
-	}
+	req := waitReqPool.Get().(*waitReq)
+	req.hasActiveLock = hasActiveLock
 	reqElement := l.PushBack(req) // 放入末尾, 先进先出
 	req.e = reqElement
 	return req, nil
@@ -84,6 +91,7 @@ func (c *ConnectPool) waitReqGetConnLoop(ctx context.Context, req *waitReq) (con
 		err = ErrWaitGetConnTimeout
 	case conn = <-req.ch:
 		c.activeNum++
+		waitReqPool.Put(req)
 		return conn, nil
 	}
 
@@ -106,5 +114,6 @@ func (c *ConnectPool) waitReqGetConnLoop(ctx context.Context, req *waitReq) (con
 	if conn != nil {
 		c.autoPutConn(conn)
 	}
+	waitReqPool.Put(req)
 	return
 }
