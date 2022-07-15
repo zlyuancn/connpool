@@ -147,6 +147,92 @@ func TestPut(t *testing.T) {
 	p.Close()
 }
 
+// 放入无效的conn
+func TestPutInvalidConn(t *testing.T) {
+	conf := makeTestConfig()
+	conf.MinIdle = 1
+	conf.MaxConnLifetime = time.Second
+	conf.CheckIdleInterval = time.Second // 将自动补足时间变短
+	p, err := NewConnectPool(conf)
+	require.Nil(t, err)
+
+	time.Sleep(time.Millisecond * 200) // 等待初始化填充conn
+	conn, err := p.Get(context.Background())
+	require.Nil(t, err)
+
+	time.Sleep(time.Second) // 等待conn达到最大存活时间
+
+	closeNum := 0
+	conf.ConnClose = func(conn *Conn) {
+		closeNum++
+	}
+	p.Put(conn)
+	time.Sleep(time.Millisecond * 100) // 调用关闭是通过goroutine的
+	require.Equal(t, 1, closeNum)
+	p.Close()
+}
+
+// 放入时将conn交给waitReq
+func TestPutConnToWaitReq(t *testing.T) {
+	conf := makeTestConfig()
+	conf.MinIdle = 1
+	conf.CheckIdleInterval = time.Minute // 将自动补足时间变长
+	p, err := NewConnectPool(conf)
+	require.Nil(t, err)
+	defer p.Close()
+
+	time.Sleep(time.Millisecond * 200)       // 等待初始化填充conn
+	conn, err := p.Get(context.Background()) // 取出初始化创建的
+	require.Nil(t, err)
+
+	conf.Creator = func(ctx context.Context) (interface{}, error) {
+		time.Sleep(time.Minute) // 将创建时间变长以让主动填充失效
+		return testConn{}, nil
+	}
+
+	go func() {
+		time.Sleep(time.Second * 1)
+		p.Put(conn)
+	}()
+	s := time.Now().Unix()
+	_, err = p.Get(context.Background()) // 再次获取
+	require.Nil(t, err)
+	if v := time.Now().Unix() - s; v < 1 {
+		t.Errorf("实际等待了%d秒", v)
+	}
+}
+
+// 放入时将活跃锁交给waitReq
+func TestPutActiveToWaitReq(t *testing.T) {
+	conf := makeTestConfig()
+	conf.MinIdle = 1
+	conf.MaxActive = 1
+	conf.CheckIdleInterval = time.Minute // 将自动补足时间变长
+	p, err := NewConnectPool(conf)
+	require.Nil(t, err)
+	defer p.Close()
+
+	time.Sleep(time.Millisecond * 200)       // 等待初始化填充conn
+	conn, err := p.Get(context.Background()) // 取出初始化创建的
+	require.Nil(t, err)
+
+	conf.Creator = func(ctx context.Context) (interface{}, error) {
+		time.Sleep(time.Minute) // 将创建时间变长以让主动填充失效
+		return testConn{}, nil
+	}
+
+	go func() {
+		time.Sleep(time.Second * 1)
+		p.Put(conn)
+	}()
+	s := time.Now().Unix()
+	_, err = p.Get(context.Background()) // 再次获取
+	require.Nil(t, err)
+	if v := time.Now().Unix() - s; v < 1 {
+		t.Errorf("实际等待了%d秒", v)
+	}
+}
+
 func TestReplenishLackConn(t *testing.T) {
 	conf := makeTestConfig()
 	conf.MinIdle = 1

@@ -103,6 +103,8 @@ func (c *ConnectPool) replenishLackConn() {
 			c.connectingCount-- // 不管申请连接结果如何都将正在申请数量-1
 			c.mx.Unlock()
 			if err != nil {
+				// 创建失败时立即重新创建极有可能也会失败, 一般来说创建失败都是网络或者限流引起的, 等一会儿可能就好了
+				time.Sleep(time.Second)
 				c.replenishLackConn() // 重新申请
 			}
 		}()
