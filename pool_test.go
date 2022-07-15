@@ -152,11 +152,11 @@ func TestPutInvalidConn(t *testing.T) {
 	conf := makeTestConfig()
 	conf.MinIdle = 1
 	conf.MaxConnLifetime = time.Second
-	conf.CheckIdleInterval = time.Second // 将自动补足时间变短
+	conf.CheckIdleInterval = time.Minute // 将自动补足时间变长
 	p, err := NewConnectPool(conf)
 	require.Nil(t, err)
 
-	time.Sleep(time.Millisecond * 200) // 等待初始化填充conn
+	time.Sleep(time.Millisecond * 500) // 等待初始化填充conn
 	conn, err := p.Get(context.Background())
 	require.Nil(t, err)
 
@@ -167,8 +167,8 @@ func TestPutInvalidConn(t *testing.T) {
 		closeNum++
 	}
 	p.Put(conn)
-	time.Sleep(time.Millisecond * 100) // 调用关闭是通过goroutine的
-	require.Equal(t, 1, closeNum)
+	time.Sleep(time.Millisecond * 200) // 调用关闭是通过goroutine的
+	require.Equal(t, true, closeNum > 0)
 	p.Close()
 }
 

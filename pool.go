@@ -85,7 +85,6 @@ func (c *ConnectPool) Get(ctx context.Context) (*Conn, error) {
 // 放回conn, 每次放回都会导致活跃计数-1
 func (c *ConnectPool) Put(conn *Conn) {
 	c.mx.Lock()
-	defer c.mx.Unlock()
 
 	c.activeNum--
 
@@ -101,6 +100,7 @@ func (c *ConnectPool) Put(conn *Conn) {
 	for !c.validConn(conn) {
 		conn = c.popFrontConn()
 		if conn == nil {
+			c.mx.Unlock()
 			c.replenishLackConn()
 			return
 		}
@@ -109,12 +109,14 @@ func (c *ConnectPool) Put(conn *Conn) {
 
 	// 立即使用这个conn
 	if c.useConn(conn) {
+		c.mx.Unlock()
 		return
 	}
 
 	// 后进先出, 以便尽早被获取
 	conn.putTimeSec = time.Now().Unix()
 	c.connList.PushFront(conn)
+	c.mx.Unlock()
 }
 
 func (c *ConnectPool) Close() {
