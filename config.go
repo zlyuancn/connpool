@@ -19,7 +19,7 @@ const (
 	// 批次缩容
 	defBatchShrink = defBatchIncrement
 	// 空闲链接超时时间
-	defIdleTimeout = 0
+	defIdleTimeout = time.Hour
 	// 等待获取连接的超时时间
 	defWaitTimeout = time.Second * 5
 	// 最大等待conn的数量
@@ -27,7 +27,7 @@ const (
 	// 连接超时
 	defConnectTimeout = time.Second * 5
 	// 一个连接最大存活时间
-	defMaxConnLifetime = 0
+	defMaxConnLifetime = time.Hour
 
 	// 检查空闲间隔, 包含最小空闲数, 最大空闲数, 空闲链接超时
 	defCheckIdleInterval = time.Second * 5
@@ -88,22 +88,22 @@ func (conf *Config) Check() error {
 		conf.BatchIncrement = conf.MaxIdle
 	}
 	if conf.BatchShrink < 1 {
-		conf.BatchShrink = conf.BatchIncrement
+		conf.BatchShrink = defBatchShrink
 	}
 	if conf.IdleTimeout < 1 {
-		conf.IdleTimeout = 0
+		conf.IdleTimeout = defIdleTimeout
 	}
 	if conf.WaitTimeout < 1 {
 		conf.WaitTimeout = defWaitTimeout
 	}
 	if conf.MaxWaitConnCount < 1 {
-		conf.MaxWaitConnCount = 0
+		conf.BatchShrink = defBatchShrink
 	}
 	if conf.ConnectTimeout < 1 {
 		conf.ConnectTimeout = defConnectTimeout
 	}
 	if conf.MaxConnLifetime < 1 {
-		conf.MaxConnLifetime = 0
+		conf.MaxConnLifetime = defMaxConnLifetime
 	}
 	if conf.CheckIdleInterval < 1 {
 		conf.CheckIdleInterval = defCheckIdleInterval
