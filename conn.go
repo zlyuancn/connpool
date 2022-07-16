@@ -26,25 +26,34 @@ func makeConn(v interface{}) *Conn {
 // 校验conn
 func (c *ConnectPool) validConn(conn *Conn) bool {
 	// 无效的conn
-	if !c.conf.ValidConnected(conn) {
+	if c.conf.ValidConnected != nil && !c.conf.ValidConnected(conn) {
 		return false
 	}
 
 	// 最大存活时间超时
 	if c.conf.MaxConnLifetime > 0 &&
 		time.Duration(time.Now().Unix()-conn.createTime)*time.Second >= c.conf.MaxConnLifetime {
-		go c.conf.ConnClose(conn)
+		go c.CloseConn(conn)
 		return false
 	}
 
 	// 空闲超时
 	if c.conf.IdleTimeout > 1 && conn.putTimeSec > 0 &&
 		time.Duration(time.Now().Unix()-conn.putTimeSec)*time.Second >= c.conf.IdleTimeout {
-		go c.conf.ConnClose(conn)
+		go c.CloseConn(conn)
 		return false
 	}
 
 	return true
+}
+
+// 关闭conn
+func (c *ConnectPool) CloseConn(conn *Conn) {
+	if c.conf.ConnClose == nil {
+		return
+	}
+
+	c.conf.ConnClose(conn)
 }
 
 // 从已连接的conn列表弹出第一个有效的conn, 不存在时返回nil

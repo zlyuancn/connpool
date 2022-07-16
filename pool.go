@@ -89,7 +89,7 @@ func (c *ConnectPool) Put(conn *Conn) {
 	c.activeNum--
 
 	if c.isClose() {
-		c.conf.ConnClose(conn)
+		c.CloseConn(conn)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (c *ConnectPool) Close() {
 
 	for c.connList.Len() > 0 {
 		conn := c.connList.Remove(c.connList.Front()).(*Conn)
-		c.conf.ConnClose(conn)
+		c.CloseConn(conn)
 	}
 	c.connList = list.New()
 }
@@ -203,7 +203,7 @@ func (c *ConnectPool) autoPutConn(conn *Conn) {
 	defer c.mx.Unlock()
 
 	if c.isClose() {
-		c.conf.ConnClose(conn)
+		c.CloseConn(conn)
 		return
 	}
 

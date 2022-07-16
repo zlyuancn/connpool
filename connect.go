@@ -168,6 +168,6 @@ func (c *ConnectPool) releaseNeedlessConn() {
 		shrink++
 
 		conn := e.Value.(*Conn)
-		go c.conf.ConnClose(conn)
+		go c.CloseConn(conn)
 	}
 }

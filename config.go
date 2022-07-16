@@ -114,8 +114,5 @@ func (conf *Config) Check() error {
 	if conf.ConnClose == nil {
 		return errors.New("未设置 ConnClose")
 	}
-	if conf.ValidConnected == nil {
-		return errors.New("未设置 ValidConnected")
-	}
 	return nil
 }
